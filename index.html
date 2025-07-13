@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Pencatat Pesanan Lokal</title>
+    <!-- Menggunakan Tailwind CSS untuk styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Menggunakan Font Inter dari Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Icon Library untuk tombol hapus -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .modal-backdrop { transition: opacity 0.3s ease; }
+        .modal-content { transition: transform 0.3s ease; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Kontainer Utama -->
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Aplikasi Pencatat Pesanan</h1>
+            <p class="text-gray-600 mt-2">Semua data disimpan secara lokal di peramban Anda.</p>
+        </header>
+
+        <!-- Tombol Aksi Utama -->
+        <div class="flex flex-col sm:flex-row justify-center gap-4 mb-8">
+            <button id="add-order-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105">
+                <i class="fas fa-plus mr-2"></i> Tambahkan Pesanan
+            </button>
+            <button id="delete-all-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105">
+                <i class="fas fa-trash-alt mr-2"></i> Hapus Semua Catatan
+            </button>
+        </div>
+
+        <!-- Daftar Pesanan -->
+        <main id="order-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Kartu pesanan akan ditampilkan di sini oleh JavaScript -->
+        </main>
+        
+        <!-- Pesan jika tidak ada pesanan -->
+        <div id="empty-state" class="text-center py-16 px-6 bg-white rounded-lg shadow-md hidden">
+            <i class="fas fa-file-alt fa-3x text-gray-400 mb-4"></i>
+            <h2 class="text-xl font-semibold text-gray-700">Belum Ada Pesanan</h2>
+            <p class="text-gray-500 mt-2">Klik tombol "Tambahkan Pesanan" untuk memulai.</p>
+        </div>
+
+    </div>
+
+    <!-- Modal untuk Menambahkan Pesanan Baru -->
+    <div id="add-order-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden modal-backdrop opacity-0">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg p-6 md:p-8 modal-content transform scale-95">
+            <h2 class="text-2xl font-bold mb-6">Buat Catatan Pesanan Baru</h2>
+            <form id="order-form">
+                <div class="mb-6">
+                    <h3 class="font-semibold text-lg mb-3">Pilih Produk:</h3>
+                    <div id="product-list" class="space-y-3 max-h-60 overflow-y-auto pr-2"></div>
+                </div>
+                <div class="mb-6">
+                    <label for="total-amount" class="block font-semibold text-lg mb-2">Total Nominal Diterima (Rp)</label>
+                    <input type="text" id="total-amount" placeholder="Contoh: 55000" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required>
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button type="button" id="cancel-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg transition">Batal</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition">Simpan Pesanan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Konfirmasi Hapus Semua -->
+    <div id="confirm-delete-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden modal-backdrop opacity-0">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-md p-8 modal-content transform scale-95">
+            <h2 class="text-2xl font-bold mb-4 text-center">Anda Yakin?</h2>
+            <p class="text-gray-600 text-center mb-8">Tindakan ini akan menghapus **semua** data pesanan secara permanen dari peramban ini.</p>
+            <div class="flex justify-center gap-4">
+                <button id="cancel-delete-all-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg transition">Batal</button>
+                <button id="confirm-delete-all-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition">Ya, Hapus Semua</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- KONFIGURASI APLIKASI ---
+            const PRODUCTS = [
+                { id: 'nestle_pure', name: 'Nestle Pure Life' },
+                { id: 'pocari_sweat', name: 'Pocari Sweat' },
+                { id: 'nipis_madu', name: 'Nipis Madu' },
+                { id: 'es_teh', name: 'Es Teh Manis' },
+                { id: 'nasi_cokot', name: 'Nasi Cokot' },
+            ];
+
+            // --- SELEKSI ELEMEN DOM ---
+            const addOrderBtn = document.getElementById('add-order-btn');
+            const deleteAllBtn = document.getElementById('delete-all-btn');
+            const orderListContainer = document.getElementById('order-list');
+            const emptyState = document.getElementById('empty-state');
+            const addOrderModal = document.getElementById('add-order-modal');
+            const orderForm = document.getElementById('order-form');
+            const productListContainer = document.getElementById('product-list');
+            const totalAmountInput = document.getElementById('total-amount');
+            const cancelBtn = document.getElementById('cancel-btn');
+            const confirmDeleteModal = document.getElementById('confirm-delete-modal');
+            const cancelDeleteAllBtn = document.getElementById('cancel-delete-all-btn');
+            const confirmDeleteAllBtn = document.getElementById('confirm-delete-all-btn');
+
+            // --- FUNGSI LOCAL STORAGE ---
+            const getOrdersFromStorage = () => {
+                const orders = localStorage.getItem('myOrders');
+                return orders ? JSON.parse(orders) : [];
+            };
+
+            const saveOrdersToStorage = (orders) => {
+                localStorage.setItem('myOrders', JSON.stringify(orders));
+            };
+
+            // --- FUNGSI UTAMA ---
+            const formatRupiah = (number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
+            const formatCurrencyInput = (input) => { input.value = input.value.replace(/[^0-9]/g, ''); };
+            totalAmountInput.addEventListener('input', () => formatCurrencyInput(totalAmountInput));
+
+            const openModal = (modal) => {
+                if (!modal) return;
+                modal.classList.remove('hidden');
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0');
+                    const content = modal.querySelector('.modal-content');
+                    if (content) content.classList.remove('scale-95');
+                }, 10);
+            };
+
+            const closeModal = (modal) => {
+                if (!modal) return;
+                modal.classList.add('opacity-0');
+                const content = modal.querySelector('.modal-content');
+                if (content) content.classList.add('scale-95');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            };
+
+            const renderProducts = () => {
+                productListContainer.innerHTML = '';
+                PRODUCTS.forEach(product => {
+                    const productEl = document.createElement('div');
+                    productEl.className = 'flex items-center justify-between bg-gray-50 p-3 rounded-lg';
+                    productEl.innerHTML = `
+                        <span class="font-medium">${product.name}</span>
+                        <div class="flex items-center gap-3">
+                            <button type="button" class="quantity-btn w-8 h-8 rounded-full bg-gray-200 text-lg font-bold hover:bg-gray-300 transition" data-product-id="${product.id}" data-action="decrease">-</button>
+                            <span id="quantity-${product.id}" class="font-bold text-lg w-8 text-center" data-product-id="${product.id}" data-product-name="${product.name}">0</span>
+                            <button type="button" class="quantity-btn w-8 h-8 rounded-full bg-gray-200 text-lg font-bold hover:bg-gray-300 transition" data-product-id="${product.id}" data-action="increase">+</button>
+                        </div>`;
+                    productListContainer.appendChild(productEl);
+                });
+            };
+
+            const renderOrders = () => {
+                const orders = getOrdersFromStorage();
+                orderListContainer.innerHTML = '';
+                emptyState.classList.toggle('hidden', orders.length > 0);
+                
+                // Urutkan pesanan dari yang terbaru
+                orders.sort((a, b) => b.id - a.id);
+
+                orders.forEach(order => {
+                    const orderCard = document.createElement('div');
+                    orderCard.className = 'bg-white p-5 rounded-xl shadow-lg border border-gray-200 flex flex-col';
+                    const itemsHtml = order.items.map(item => `<li class="flex justify-between"><span>${item.name}</span><span class="font-semibold">x${item.quantity}</span></li>`).join('');
+                    const formattedDate = new Date(order.id).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+                    orderCard.innerHTML = `
+                        <div class="flex-grow">
+                            <div class="flex justify-between items-start mb-3">
+                                <h3 class="font-bold text-lg text-blue-700">Pesanan #${String(order.id).slice(-6)}</h3>
+                                <span class="text-xs text-gray-500">${formattedDate}</span>
+                            </div>
+                            <ul class="space-y-1 text-gray-700 mb-4 border-t border-b py-3">${itemsHtml}</ul>
+                            <div class="text-right">
+                                <p class="text-sm text-gray-500">Total Diterima</p>
+                                <p class="font-bold text-xl text-green-600">${formatRupiah(order.totalAmount)}</p>
+                            </div>
+                        </div>
+                        <button data-id="${order.id}" class="delete-order-btn mt-4 w-full bg-red-100 text-red-700 hover:bg-red-200 font-semibold py-2 px-4 rounded-lg transition text-sm">
+                            <i class="fas fa-trash-alt mr-2"></i>Hapus Catatan Ini
+                        </button>`;
+                    orderListContainer.appendChild(orderCard);
+                });
+            };
+
+            // --- LOGIKA APLIKASI ---
+            const saveOrder = (e) => {
+                e.preventDefault();
+                const selectedItems = Array.from(document.querySelectorAll('#product-list span[data-product-id]'))
+                    .map(span => ({
+                        id: span.dataset.productId,
+                        name: span.dataset.productName,
+                        quantity: parseInt(span.innerText, 10)
+                    }))
+                    .filter(item => item.quantity > 0);
+
+                if (selectedItems.length === 0) { alert('Pilih minimal satu produk.'); return; }
+                const totalAmount = parseInt(totalAmountInput.value.replace(/[^0-9]/g, ''), 10);
+                if (isNaN(totalAmount) || totalAmount <= 0) { alert('Masukkan jumlah nominal yang valid.'); return; }
+
+                const newOrder = {
+                    id: Date.now(), // Menggunakan timestamp sebagai ID unik
+                    items: selectedItems,
+                    totalAmount: totalAmount
+                };
+
+                const orders = getOrdersFromStorage();
+                orders.push(newOrder);
+                saveOrdersToStorage(orders);
+
+                closeModal(addOrderModal);
+                orderForm.reset();
+                renderProducts();
+                renderOrders();
+            };
+
+            const deleteOrder = (orderId) => {
+                if (confirm(`Anda yakin ingin menghapus pesanan ini?`)) {
+                    let orders = getOrdersFromStorage();
+                    orders = orders.filter(order => order.id != orderId);
+                    saveOrdersToStorage(orders);
+                    renderOrders();
+                }
+            };
+
+            const deleteAllOrders = () => {
+                closeModal(confirmDeleteModal);
+                saveOrdersToStorage([]); // Simpan array kosong
+                renderOrders();
+            };
+            
+            // --- EVENT LISTENERS ---
+            addOrderBtn.addEventListener('click', () => openModal(addOrderModal));
+            cancelBtn.addEventListener('click', () => closeModal(addOrderModal));
+            addOrderModal.addEventListener('click', (e) => { if (e.target === addOrderModal) closeModal(addOrderModal); });
+            orderForm.addEventListener('submit', saveOrder);
+
+            orderListContainer.addEventListener('click', (e) => {
+                const btn = e.target.closest('.delete-order-btn');
+                if (btn) deleteOrder(btn.dataset.id);
+            });
+
+            deleteAllBtn.addEventListener('click', () => openModal(confirmDeleteModal));
+            cancelDeleteAllBtn.addEventListener('click', () => closeModal(confirmDeleteModal));
+            confirmDeleteModal.addEventListener('click', (e) => { if (e.target === confirmDeleteModal) closeModal(confirmDeleteModal); });
+            confirmDeleteAllBtn.addEventListener('click', deleteAllOrders);
+
+            productListContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('quantity-btn')) {
+                    const { action, productId } = e.target.dataset;
+                    const quantitySpan = document.getElementById(`quantity-${productId}`);
+                    let quantity = parseInt(quantitySpan.innerText, 10);
+                    if (action === 'increase') quantity++;
+                    else if (action === 'decrease' && quantity > 0) quantity--;
+                    quantitySpan.innerText = quantity;
+                }
+            });
+
+            // --- INISIALISASI APLIKASI ---
+            renderProducts();
+            renderOrders();
+        });
+    </script>
+</body>
+</html>
